@@ -24,7 +24,6 @@ void LocalEmbedderHeapTracer::TracePrologue(
     EmbedderHeapTracer::TraceFlags flags) {
   if (!InUse()) return;
 
-  num_v8_marking_worklist_was_empty_ = 0;
   embedder_worklist_empty_ = false;
   remote_tracer_->TracePrologue(flags);
 }
@@ -93,8 +92,11 @@ void LocalEmbedderHeapTracer::ProcessingScope::TracePossibleWrapper(
 
   void* pointer0;
   void* pointer1;
-  if (EmbedderDataSlot(js_object, 0).ToAlignedPointer(&pointer0) && pointer0 &&
-      EmbedderDataSlot(js_object, 1).ToAlignedPointer(&pointer1)) {
+  if (EmbedderDataSlot(js_object, 0)
+          .ToAlignedPointer(tracer_->isolate_, &pointer0) &&
+      pointer0 &&
+      EmbedderDataSlot(js_object, 1)
+          .ToAlignedPointer(tracer_->isolate_, &pointer1)) {
     wrapper_cache_.push_back({pointer0, pointer1});
   }
   FlushWrapperCacheIfFull();

@@ -98,7 +98,7 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
   Response getWasmBytecode(const String16& scriptId,
                            protocol::Binary* bytecode) override;
   Response pause() override;
-  Response resume() override;
+  Response resume(Maybe<bool> terminateOnResume) override;
   Response stepOver() override;
   Response stepInto(Maybe<bool> inBreakOnAsyncCall) override;
   Response stepOut() override;
@@ -113,6 +113,11 @@ class V8DebuggerAgentImpl : public protocol::Debugger::Backend {
       Maybe<double> timeout,
       std::unique_ptr<protocol::Runtime::RemoteObject>* result,
       Maybe<protocol::Runtime::ExceptionDetails>*) override;
+  Response executeWasmEvaluator(
+      const String16& callFrameId, const protocol::Binary& evaluator,
+      Maybe<double> timeout,
+      std::unique_ptr<protocol::Runtime::RemoteObject>* result,
+      Maybe<protocol::Runtime::ExceptionDetails>* exceptionDetails) override;
   Response setVariableValue(
       int scopeNumber, const String16& variableName,
       std::unique_ptr<protocol::Runtime::CallArgument> newValue,

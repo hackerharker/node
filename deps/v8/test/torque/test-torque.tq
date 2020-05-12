@@ -2,6 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
+// Test line comment
+/* Test mulitline
+   comment
+*/
+
 namespace test {
   macro ElementsKindTestHelper1(kind: constexpr ElementsKind): bool {
     if constexpr (
@@ -63,8 +68,7 @@ namespace test {
   macro TestGotoLabel(): Boolean {
     try {
       LabelTestHelper1() otherwise Label1;
-    }
-    label Label1 {
+    } label Label1 {
       return True;
     }
   }
@@ -73,8 +77,7 @@ namespace test {
   macro TestGotoLabelWithOneParameter(): Boolean {
     try {
       LabelTestHelper2() otherwise Label2;
-    }
-    label Label2(smi: Smi) {
+    } label Label2(smi: Smi) {
       check(smi == 42);
       return True;
     }
@@ -84,28 +87,27 @@ namespace test {
   macro TestGotoLabelWithTwoParameters(): Boolean {
     try {
       LabelTestHelper3() otherwise Label3;
-    }
-    label Label3(o: Oddball, smi: Smi) {
+    } label Label3(o: Oddball, smi: Smi) {
       check(o == Null);
       check(smi == 7);
       return True;
     }
   }
 
-  builtin GenericBuiltinTest<T: type>(_c: Context, _param: T): JSAny {
+  builtin GenericBuiltinTest<T: type>(_param: T): JSAny {
     return Null;
   }
 
-  GenericBuiltinTest<JSAny>(_c: Context, param: JSAny): JSAny {
+  GenericBuiltinTest<JSAny>(param: JSAny): JSAny {
     return param;
   }
 
   @export
-  macro TestBuiltinSpecialization(c: Context) {
-    check(GenericBuiltinTest<Smi>(c, 0) == Null);
-    check(GenericBuiltinTest<Smi>(c, 1) == Null);
-    check(GenericBuiltinTest<JSAny>(c, Undefined) == Undefined);
-    check(GenericBuiltinTest<JSAny>(c, Undefined) == Undefined);
+  macro TestBuiltinSpecialization() {
+    check(GenericBuiltinTest<Smi>(0) == Null);
+    check(GenericBuiltinTest<Smi>(1) == Null);
+    check(GenericBuiltinTest<JSAny>(Undefined) == Undefined);
+    check(GenericBuiltinTest<JSAny>(Undefined) == Undefined);
   }
 
   macro LabelTestHelper4(flag: constexpr bool): never
@@ -120,11 +122,9 @@ namespace test {
   macro CallLabelTestHelper4(flag: constexpr bool): bool {
     try {
       LabelTestHelper4(flag) otherwise Label4, Label5;
-    }
-    label Label4 {
+    } label Label4 {
       return true;
-    }
-    label Label5 {
+    } label Label5 {
       return false;
     }
   }
@@ -172,27 +172,25 @@ namespace test {
       check((GenericMacroTestWithLabels<Smi>(0) otherwise Fail) == Undefined);
       try {
         GenericMacroTestWithLabels<Object>(False) otherwise Expected;
-      }
-      label Expected {}
-    }
-    label Fail {
+      } label Expected {}
+    } label Fail {
       unreachable;
     }
   }
 
-  builtin TestHelperPlus1(_context: Context, x: Smi): Smi {
+  builtin TestHelperPlus1(x: Smi): Smi {
     return x + 1;
   }
-  builtin TestHelperPlus2(_context: Context, x: Smi): Smi {
+  builtin TestHelperPlus2(x: Smi): Smi {
     return x + 2;
   }
 
   @export
   macro TestFunctionPointers(implicit context: Context)(): Boolean {
-    let fptr: builtin(Context, Smi) => Smi = TestHelperPlus1;
-    check(fptr(context, 42) == 43);
+    let fptr: builtin(Smi) => Smi = TestHelperPlus1;
+    check(fptr(42) == 43);
     fptr = TestHelperPlus2;
-    check(fptr(context, 42) == 44);
+    check(fptr(42) == 44);
     return True;
   }
 
@@ -210,14 +208,14 @@ namespace test {
   }
 
   @export
-  macro TestFunctionPointerToGeneric(c: Context) {
-    const fptr1: builtin(Context, Smi) => JSAny = GenericBuiltinTest<Smi>;
-    const fptr2: builtin(Context, JSAny) => JSAny = GenericBuiltinTest<JSAny>;
+  macro TestFunctionPointerToGeneric() {
+    const fptr1: builtin(Smi) => JSAny = GenericBuiltinTest<Smi>;
+    const fptr2: builtin(JSAny) => JSAny = GenericBuiltinTest<JSAny>;
 
-    check(fptr1(c, 0) == Null);
-    check(fptr1(c, 1) == Null);
-    check(fptr2(c, Undefined) == Undefined);
-    check(fptr2(c, Undefined) == Undefined);
+    check(fptr1(0) == Null);
+    check(fptr1(1) == Null);
+    check(fptr2(Undefined) == Undefined);
+    check(fptr2(Undefined) == Undefined);
   }
 
   type ObjectToObject = builtin(Context, JSAny) => JSAny;
@@ -231,7 +229,7 @@ namespace test {
     if (TaggedIsSmi(n)) {
       const m: Smi = UnsafeCast<Smi>(n);
 
-      check(TestHelperPlus1(context, m) == 11);
+      check(TestHelperPlus1(m) == 11);
       return True;
     }
     return False;
@@ -352,8 +350,7 @@ namespace test {
   macro CallTestStructInLabel(implicit context: Context)() {
     try {
       TestStructInLabel() otherwise Foo;
-    }
-    label Foo(_s: TestStructA) {}
+    } label Foo(_s: TestStructA) {}
   }
 
   // This macro tests different versions of the for-loop where some parts
@@ -447,8 +444,7 @@ namespace test {
       for (;;) {
         if (++j == 10) goto Exit;
       }
-    }
-    label Exit {
+    } label Exit {
       check(j == 10);
     }
 
@@ -593,8 +589,7 @@ namespace test {
     let s: Smi = 1;
     try {
       TestCall(10) otherwise goto B(++s);
-    }
-    label B(v1: Smi) {
+    } label B(v1: Smi) {
       v = v1;
     }
     assert(v == 2);
@@ -623,11 +618,9 @@ namespace test {
   macro TestForwardLabel() {
     try {
       goto A;
-    }
-    label A {
+    } label A {
       goto B(5);
-    }
-    label B(b: Smi) {
+    } label B(b: Smi) {
       assert(b == 5);
     }
   }
@@ -676,13 +669,11 @@ namespace test {
     let r: Smi = 0;
     try {
       TestCatch3WrapperWithLabel() otherwise Abort;
-    }
-    label Abort {
-      return -1;
-    }
-    catch (_e) {
+    } catch (_e) {
       r = 2;
       return r;
+    } label Abort {
+      return -1;
     }
   }
 
@@ -691,7 +682,8 @@ namespace test {
   // IteratorBuiltinsAssembler match the signatures provided in
   // iterator.tq.
   @export
-  macro TestIterator(implicit context: Context)(o: JSReceiver, map: Map) {
+  transitioning macro TestIterator(implicit context:
+                                       Context)(o: JSReceiver, map: Map) {
     try {
       const t1: JSAny = iterator::GetIteratorMethod(o);
       const t2: iterator::IteratorRecord = iterator::GetIterator(o);
@@ -699,14 +691,13 @@ namespace test {
       const _t3: JSAny = iterator::IteratorStep(t2) otherwise Fail;
       const _t4: JSAny = iterator::IteratorStep(t2, map) otherwise Fail;
 
-      const t5: JSAny = iterator::IteratorValue(o);
+      const _t5: JSAny = iterator::IteratorValue(o);
       const _t6: JSAny = iterator::IteratorValue(o, map);
 
       const _t7: JSArray = iterator::IterableToList(t1, t1);
 
-      iterator::IteratorCloseOnException(t2, t5);
-    }
-    label Fail {}
+      iterator::IteratorCloseOnException(t2);
+    } label Fail {}
   }
 
   @export
@@ -767,7 +758,7 @@ namespace test {
     check(a.b.GetX() == 2);
   }
 
-  class InternalClass extends Struct {
+  class InternalClass extends HeapObject {
     macro Flip() labels NotASmi {
       const tmp = Cast<Smi>(this.b) otherwise NotASmi;
       this.b = this.a;
@@ -833,7 +824,7 @@ namespace test {
     return new FixedArray{map: kFixedArrayMap, length: 5, objects: ...i};
   }
 
-  class SmiPair extends Struct {
+  class SmiPair extends HeapObject {
     macro GetA():&Smi {
       return & this.a;
     }
@@ -920,7 +911,7 @@ namespace test {
     StaticAssert(1 + 2 == 3);
   }
 
-  class SmiBox extends Struct {
+  class SmiBox extends HeapObject {
     value: Smi;
     unrelated: Smi;
   }
@@ -1080,6 +1071,12 @@ namespace test {
     TestBitFieldLoad(val, !a, b, c, b == c);
   }
 
+  @export
+  macro TestBitFieldInit(a: bool, b: uint16, c: uint32, d: bool) {
+    const val: TestBitFieldStruct = TestBitFieldStruct{a: a, b: b, c: c, d: d};
+    TestBitFieldLoad(val, a, b, c, d);
+  }
+
   // Some other bitfield structs, to verify getting uintptr values out of word32
   // structs and vice versa.
   bitfield struct TestBitFieldStruct2 extends uint32 {
@@ -1119,5 +1116,117 @@ namespace test {
     check(val3.c);
     check(val3.d == 99);
     check(val3.e == 1234);
+  }
+
+  @export
+  class ExportedSubClass extends ExportedSubClassBase {
+    c_field: int32;
+    d_field: int32;
+    e_field: Smi;
+  }
+
+  @export
+  class ExportedSubClassBase extends HeapObject {
+    a: HeapObject;
+    b: HeapObject;
+  }
+
+  @abstract
+  class AbstractInternalClass extends HeapObject {
+  }
+
+  class AbstractInternalClassSubclass1 extends AbstractInternalClass {}
+
+  class AbstractInternalClassSubclass2 extends AbstractInternalClass {}
+
+  class InternalClassWithSmiElements extends FixedArrayBase {
+    data: Smi;
+    object: Oddball;
+    entries[length]: Smi;
+  }
+
+  struct InternalClassStructElement {
+    a: Smi;
+    b: Smi;
+  }
+
+  class InternalClassWithStructElements extends HeapObject {
+    dummy1: int32;
+    dummy2: int32;
+    const count: Smi;
+    data: Smi;
+    object: Object;
+    entries[count]: Smi;
+    more_entries[count]: InternalClassStructElement;
+  }
+
+  struct SmiGeneratorIterator {
+    macro Next(): Smi labels _NoMore {
+      return this.value++;
+    }
+    value: Smi;
+  }
+
+  struct InternalClassStructElementGeneratorIterator {
+    macro Next(): InternalClassStructElement labels _NoMore {
+      return InternalClassStructElement{a: this.value++, b: this.value++};
+    }
+    value: Smi;
+  }
+
+  @export
+  macro TestFullyGeneratedClassWithElements() {
+    // Test creation, initialization and access of a fully generated class with
+    // simple (Smi) elements
+    const length: Smi = Convert<Smi>(3);
+    const object1 = new InternalClassWithSmiElements{
+      length,
+      data: 0,
+      object: Undefined,
+      entries: ...SmiGeneratorIterator {
+        value: 11
+      }
+    };
+    assert(object1.length == 3);
+    assert(object1.data == 0);
+    assert(object1.object == Undefined);
+    assert(object1.entries[0] == 11);
+    assert(object1.entries[1] == 12);
+    assert(object1.entries[2] == 13);
+
+    // Test creation, initialization and access of a fully generated class
+    // with elements that are a struct.
+    const object2 = new InternalClassWithStructElements{
+      dummy1: 44,
+      dummy2: 45,
+      count: length,
+      data: 55,
+      object: Undefined,
+      entries: ...SmiGeneratorIterator{value: 3},
+      more_entries: ...InternalClassStructElementGeneratorIterator {
+        value: 1
+      }
+    };
+
+    assert(object2.dummy1 == 44);
+    assert(object2.dummy2 == 45);
+    assert(object2.count == 3);
+    assert(object2.data == 55);
+    assert(object2.object == Undefined);
+    assert(object2.entries[0] == 3);
+    assert(object2.entries[1] == 4);
+    assert(object2.entries[2] == 5);
+    assert(object2.more_entries[0].a == 1);
+    assert(object2.more_entries[0].b == 2);
+    assert(object2.more_entries[1].a == 3);
+    assert(object2.more_entries[1].b == 4);
+    assert(object2.more_entries[2].a == 5);
+    assert(object2.more_entries[2].b == 6);
+  }
+
+  @export
+  macro TestFullyGeneratedClassFromCpp(): ExportedSubClass {
+    return new
+    ExportedSubClass{a: Null, b: Null, c_field: 7, d_field: 8, e_field: 9};
   }
 }

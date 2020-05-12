@@ -14,8 +14,7 @@ namespace array {
     if (arguments.length == 1 && receiver == GetArrayFunction()) {
       try {
         return iterator::FastIterableToList(arguments[0]) otherwise Slow;
-      }
-      label Slow {
+      } label Slow {
         // fall through
       }
     }
@@ -33,7 +32,7 @@ namespace array {
       mapping = false;
     } else {
       // a. If IsCallable(mapfn) is false, throw a TypeError exception.
-      if (!TaggedIsCallable(mapfn)) deferred {
+      if (!Is<Callable>(mapfn)) deferred {
           ThrowTypeError(MessageTemplate::kCalledNonCallable, mapfn);
         }
       // b. Let mapping be true.
@@ -110,7 +109,8 @@ namespace array {
             mappedValue = Call(
                 context, UnsafeCast<Callable>(mapfn), thisArg, nextValue, k);
           } catch (e) {
-            iterator::IteratorCloseOnException(iteratorRecord, e);
+            iterator::IteratorCloseOnException(iteratorRecord);
+            ReThrow(context, e);
           }
         } else {
           mappedValue = nextValue;
@@ -122,14 +122,14 @@ namespace array {
         try {
           FastCreateDataProperty(a, k, mappedValue);
         } catch (e) deferred {
-          iterator::IteratorCloseOnException(iteratorRecord, e);
+          iterator::IteratorCloseOnException(iteratorRecord);
+          ReThrow(context, e);
         }
         // x. Set k to k + 1.
         k += 1;
       }
       unreachable;
-    }
-    label IteratorIsUndefined {
+    } label IteratorIsUndefined {
       // 6. NOTE: items is not an Iterable so assume it is an array-like object.
       // 7. Let arrayLike be ! ToObject(items).
       const arrayLike = ToObject_Inline(context, items);
@@ -176,8 +176,7 @@ namespace array {
       array::SetPropertyLength(a, len);
       // 14. Return A.
       return a;
-    }
-    label IteratorNotCallable(_value: JSAny) deferred {
+    } label IteratorNotCallable(_value: JSAny) deferred {
       ThrowTypeError(MessageTemplate::kIteratorSymbolNonCallable);
     }
   }

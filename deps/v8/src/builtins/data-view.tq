@@ -66,8 +66,7 @@ namespace data_view {
       JSDataView {
     try {
       return Cast<JSDataView>(o) otherwise CastError;
-    }
-    label CastError {
+    } label CastError {
       ThrowTypeError(MessageTemplate::kIncompatibleMethodReceiver, method);
     }
   }
@@ -122,16 +121,16 @@ namespace data_view {
   macro LoadDataView8(
       buffer: JSArrayBuffer, offset: uintptr, signed: constexpr bool): Smi {
     if constexpr (signed) {
-      return Convert<Smi>(LoadInt8(buffer.backing_store, offset));
+      return Convert<Smi>(LoadInt8(buffer.backing_store_ptr, offset));
     } else {
-      return Convert<Smi>(LoadUint8(buffer.backing_store, offset));
+      return Convert<Smi>(LoadUint8(buffer.backing_store_ptr, offset));
     }
   }
 
   macro LoadDataView16(
       buffer: JSArrayBuffer, offset: uintptr, requestedLittleEndian: bool,
       signed: constexpr bool): Number {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     let b0: int32;
     let b1: int32;
@@ -158,7 +157,7 @@ namespace data_view {
   macro LoadDataView32(
       buffer: JSArrayBuffer, offset: uintptr, requestedLittleEndian: bool,
       kind: constexpr ElementsKind): Number {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     const b0: uint32 = LoadUint8(dataPointer, offset);
     const b1: uint32 = LoadUint8(dataPointer, offset + 1);
@@ -187,7 +186,7 @@ namespace data_view {
   macro LoadDataViewFloat64(
       buffer: JSArrayBuffer, offset: uintptr,
       requestedLittleEndian: bool): Number {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     const b0: uint32 = LoadUint8(dataPointer, offset);
     const b1: uint32 = LoadUint8(dataPointer, offset + 1);
@@ -329,7 +328,7 @@ namespace data_view {
   macro LoadDataViewBigInt(implicit context: Context)(
       buffer: JSArrayBuffer, offset: uintptr, requestedLittleEndian: bool,
       signed: constexpr bool): BigInt {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     const b0: uint32 = LoadUint8(dataPointer, offset);
     const b1: uint32 = LoadUint8(dataPointer, offset + 1);
@@ -423,8 +422,7 @@ namespace data_view {
       } else {
         unreachable;
       }
-    }
-    label RangeError {
+    } label RangeError {
       ThrowRangeError(MessageTemplate::kInvalidDataViewAccessorOffset);
     }
   }
@@ -432,7 +430,7 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetUint8(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
+    const offset: JSAny = arguments[0];
     return DataViewGet(
         context, receiver, offset, Undefined, ElementsKind::UINT8_ELEMENTS);
   }
@@ -440,7 +438,7 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetInt8(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
+    const offset: JSAny = arguments[0];
     return DataViewGet(
         context, receiver, offset, Undefined, ElementsKind::INT8_ELEMENTS);
   }
@@ -448,9 +446,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetUint16(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::UINT16_ELEMENTS);
@@ -459,9 +456,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetInt16(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::INT16_ELEMENTS);
@@ -470,9 +466,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetUint32(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::UINT32_ELEMENTS);
@@ -481,9 +476,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetInt32(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::INT32_ELEMENTS);
@@ -492,9 +486,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetFloat32(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::FLOAT32_ELEMENTS);
@@ -503,9 +496,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetFloat64(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::FLOAT64_ELEMENTS);
@@ -514,9 +506,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetBigUint64(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::BIGUINT64_ELEMENTS);
@@ -525,9 +516,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeGetBigInt64(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const isLittleEndian: JSAny = arguments[1];
     return DataViewGet(
         context, receiver, offset, isLittleEndian,
         ElementsKind::BIGINT64_ELEMENTS);
@@ -541,13 +531,13 @@ namespace data_view {
       void;
 
   macro StoreDataView8(buffer: JSArrayBuffer, offset: uintptr, value: uint32) {
-    StoreWord8(buffer.backing_store, offset, value & 0xFF);
+    StoreWord8(buffer.backing_store_ptr, offset, value & 0xFF);
   }
 
   macro StoreDataView16(
       buffer: JSArrayBuffer, offset: uintptr, value: uint32,
       requestedLittleEndian: bool) {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     const b0: uint32 = value & 0xFF;
     const b1: uint32 = (value >>> 8) & 0xFF;
@@ -564,7 +554,7 @@ namespace data_view {
   macro StoreDataView32(
       buffer: JSArrayBuffer, offset: uintptr, value: uint32,
       requestedLittleEndian: bool) {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     const b0: uint32 = value & 0xFF;
     const b1: uint32 = (value >>> 8) & 0xFF;
@@ -587,7 +577,7 @@ namespace data_view {
   macro StoreDataView64(
       buffer: JSArrayBuffer, offset: uintptr, lowWord: uint32, highWord: uint32,
       requestedLittleEndian: bool) {
-    const dataPointer: RawPtr = buffer.backing_store;
+    const dataPointer: RawPtr = buffer.backing_store_ptr;
 
     const b0: uint32 = lowWord & 0xFF;
     const b1: uint32 = (lowWord >>> 8) & 0xFF;
@@ -758,8 +748,7 @@ namespace data_view {
         }
       }
       return Undefined;
-    }
-    label RangeError {
+    } label RangeError {
       ThrowRangeError(MessageTemplate::kInvalidDataViewAccessorOffset);
     }
   }
@@ -767,8 +756,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetUint8(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
     return DataViewSet(
         context, receiver, offset, value, Undefined,
         ElementsKind::UINT8_ELEMENTS);
@@ -777,8 +766,8 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetInt8(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
     return DataViewSet(
         context, receiver, offset, value, Undefined,
         ElementsKind::INT8_ELEMENTS);
@@ -787,10 +776,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetUint16(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::UINT16_ELEMENTS);
@@ -799,10 +787,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetInt16(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::INT16_ELEMENTS);
@@ -811,10 +798,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetUint32(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::UINT32_ELEMENTS);
@@ -823,10 +809,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetInt32(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::INT32_ELEMENTS);
@@ -835,10 +820,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetFloat32(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::FLOAT32_ELEMENTS);
@@ -847,10 +831,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetFloat64(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::FLOAT64_ELEMENTS);
@@ -859,10 +842,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetBigUint64(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::BIGUINT64_ELEMENTS);
@@ -871,10 +853,9 @@ namespace data_view {
   transitioning javascript builtin DataViewPrototypeSetBigInt64(
       js-implicit context: NativeContext,
       receiver: JSAny)(...arguments): JSAny {
-    const offset: JSAny = arguments.length > 0 ? arguments[0] : Undefined;
-    const value: JSAny = arguments.length > 1 ? arguments[1] : Undefined;
-    const isLittleEndian: JSAny =
-        arguments.length > 2 ? arguments[2] : Undefined;
+    const offset: JSAny = arguments[0];
+    const value: JSAny = arguments[1];
+    const isLittleEndian: JSAny = arguments[2];
     return DataViewSet(
         context, receiver, offset, value, isLittleEndian,
         ElementsKind::BIGINT64_ELEMENTS);

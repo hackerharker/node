@@ -26,12 +26,14 @@ namespace v8 {
 
 namespace internal {
 class JSArrayBufferView;
+class JSFinalizationRegistry;
 }  // namespace internal
 
 namespace debug {
 class AccessorPair;
 class GeneratorObject;
 class Script;
+class WasmValue;
 class WeakMap;
 }  // namespace debug
 
@@ -92,7 +94,6 @@ class RegisteredExtension {
   V(Data, Object)                              \
   V(RegExp, JSRegExp)                          \
   V(Object, JSReceiver)                        \
-  V(FinalizationGroup, JSFinalizationGroup)    \
   V(Array, JSArray)                            \
   V(Map, JSMap)                                \
   V(Set, JSSet)                                \
@@ -128,6 +129,7 @@ class RegisteredExtension {
   V(debug::Script, Script)                     \
   V(debug::WeakMap, JSWeakMap)                 \
   V(debug::AccessorPair, AccessorPair)         \
+  V(debug::WasmValue, WasmValue)               \
   V(Promise, JSPromise)                        \
   V(Primitive, Object)                         \
   V(PrimitiveArray, FixedArray)                \
@@ -204,8 +206,6 @@ class Utils {
       v8::internal::Handle<v8::internal::JSTypedArray> obj);
   static inline Local<BigUint64Array> ToLocalBigUint64Array(
       v8::internal::Handle<v8::internal::JSTypedArray> obj);
-  static inline Local<FinalizationGroup> ToLocal(
-      v8::internal::Handle<v8::internal::JSFinalizationGroup> obj);
 
   static inline Local<SharedArrayBuffer> ToLocalShared(
       v8::internal::Handle<v8::internal::JSArrayBuffer> obj);
@@ -272,16 +272,6 @@ class Utils {
   template <class From, class To>
   static inline v8::internal::Handle<To> OpenHandle(v8::Local<From> handle) {
     return OpenHandle(*handle);
-  }
-
-  static inline CompiledWasmModule Convert(
-      std::shared_ptr<i::wasm::NativeModule> native_module) {
-    return CompiledWasmModule{std::move(native_module)};
-  }
-
-  static inline const std::shared_ptr<i::wasm::NativeModule>& Open(
-      const CompiledWasmModule& compiled_module) {
-    return compiled_module.native_module_;
   }
 
  private:
@@ -560,6 +550,11 @@ void InvokeAccessorGetterCallback(
 
 void InvokeFunctionCallback(const v8::FunctionCallbackInfo<v8::Value>& info,
                             v8::FunctionCallback callback);
+
+void InvokeFinalizationRegistryCleanupFromTask(
+    Handle<Context> context,
+    Handle<JSFinalizationRegistry> finalization_registry,
+    Handle<Object> callback);
 
 }  // namespace internal
 }  // namespace v8

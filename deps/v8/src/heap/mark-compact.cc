@@ -20,6 +20,7 @@
 #include "src/heap/incremental-marking-inl.h"
 #include "src/heap/invalidated-slots-inl.h"
 #include "src/heap/item-parallel-job.h"
+#include "src/heap/large-spaces.h"
 #include "src/heap/local-allocator-inl.h"
 #include "src/heap/mark-compact-inl.h"
 #include "src/heap/marking-visitor-inl.h"
@@ -29,6 +30,7 @@
 #include "src/heap/object-stats.h"
 #include "src/heap/objects-visiting-inl.h"
 #include "src/heap/read-only-heap.h"
+#include "src/heap/read-only-spaces.h"
 #include "src/heap/spaces-inl.h"
 #include "src/heap/sweeper.h"
 #include "src/heap/worklist.h"
@@ -96,7 +98,7 @@ class MarkingVerifier : public ObjectVisitor, public RootVisitor {
     VerifyRootPointers(start, end);
   }
 
-  void VerifyRoots(VisitMode mode);
+  void VerifyRoots();
   void VerifyMarkingOnPage(const Page* page, Address start, Address end);
   void VerifyMarking(NewSpace* new_space);
   void VerifyMarking(PagedSpace* paged_space);
@@ -105,8 +107,8 @@ class MarkingVerifier : public ObjectVisitor, public RootVisitor {
   Heap* heap_;
 };
 
-void MarkingVerifier::VerifyRoots(VisitMode mode) {
-  heap_->IterateStrongRoots(this, mode);
+void MarkingVerifier::VerifyRoots() {
+  heap_->IterateRoots(this, base::EnumSet<SkipRoot>{SkipRoot::kWeak});
 }
 
 void MarkingVerifier::VerifyMarkingOnPage(const Page* page, Address start,
@@ -177,7 +179,7 @@ class FullMarkingVerifier : public MarkingVerifier {
             heap->mark_compact_collector()->non_atomic_marking_state()) {}
 
   void Run() override {
-    VerifyRoots(VISIT_ONLY_STRONG);
+    VerifyRoots();
     VerifyMarking(heap_->new_space());
     VerifyMarking(heap_->new_lo_space());
     VerifyMarking(heap_->old_space());
@@ -273,7 +275,7 @@ class EvacuationVerifier : public ObjectVisitor, public RootVisitor {
   virtual void VerifyPointers(MaybeObjectSlot start, MaybeObjectSlot end) = 0;
   virtual void VerifyRootPointers(FullObjectSlot start, FullObjectSlot end) = 0;
 
-  void VerifyRoots(VisitMode mode);
+  void VerifyRoots();
   void VerifyEvacuationOnPage(Address start, Address end);
   void VerifyEvacuation(NewSpace* new_space);
   void VerifyEvacuation(PagedSpace* paged_space);
@@ -281,8 +283,8 @@ class EvacuationVerifier : public ObjectVisitor, public RootVisitor {
   Heap* heap_;
 };
 
-void EvacuationVerifier::VerifyRoots(VisitMode mode) {
-  heap_->IterateStrongRoots(this, mode);
+void EvacuationVerifier::VerifyRoots() {
+  heap_->IterateRoots(this, base::EnumSet<SkipRoot>{SkipRoot::kWeak});
 }
 
 void EvacuationVerifier::VerifyEvacuationOnPage(Address start, Address end) {
@@ -323,7 +325,7 @@ class FullEvacuationVerifier : public EvacuationVerifier {
   explicit FullEvacuationVerifier(Heap* heap) : EvacuationVerifier(heap) {}
 
   void Run() override {
-    VerifyRoots(VISIT_ALL);
+    VerifyRoots();
     VerifyEvacuation(heap_->new_space());
     VerifyEvacuation(heap_->old_space());
     VerifyEvacuation(heap_->code_space());
@@ -387,8 +389,9 @@ int NumberOfAvailableCores() {
 
 int MarkCompactCollectorBase::NumberOfParallelCompactionTasks(int pages) {
   DCHECK_GT(pages, 0);
-  int tasks =
-      FLAG_parallel_compaction ? Min(NumberOfAvailableCores(), pages) : 1;
+  int tasks = FLAG_parallel_compaction ? Min(NumberOfAvailableCores(),
+                                             pages / (MB / Page::kPageSize) + 1)
+                                       : 1;
   if (!heap_->CanExpandOldGeneration(
           static_cast<size_t>(tasks * Page::kPageSize))) {
     // Optimize for memory usage near the heap limit.
@@ -1322,7 +1325,7 @@ class EvacuateVisitorBase : public HeapObjectVisitor {
     src.set_map_word(MapWord::FromForwardingAddress(dst));
   }
 
-  EvacuateVisitorBase(Heap* heap, LocalAllocator* local_allocator,
+  EvacuateVisitorBase(Heap* heap, EvacuationAllocator* local_allocator,
                       RecordMigratedSlotVisitor* record_visitor)
       : heap_(heap),
         local_allocator_(local_allocator),
@@ -1381,7 +1384,7 @@ class EvacuateVisitorBase : public HeapObjectVisitor {
 #endif  // VERIFY_HEAP
 
   Heap* heap_;
-  LocalAllocator* local_allocator_;
+  EvacuationAllocator* local_allocator_;
   RecordMigratedSlotVisitor* record_visitor_;
   std::vector<MigrationObserver*> observers_;
   MigrateFunction migration_function_;
@@ -1390,7 +1393,7 @@ class EvacuateVisitorBase : public HeapObjectVisitor {
 class EvacuateNewSpaceVisitor final : public EvacuateVisitorBase {
  public:
   explicit EvacuateNewSpaceVisitor(
-      Heap* heap, LocalAllocator* local_allocator,
+      Heap* heap, EvacuationAllocator* local_allocator,
       RecordMigratedSlotVisitor* record_visitor,
       Heap::PretenuringFeedbackMap* local_pretenuring_feedback,
       bool always_promote_young)
@@ -1544,7 +1547,7 @@ class EvacuateNewSpacePageVisitor final : public HeapObjectVisitor {
 
 class EvacuateOldSpaceVisitor final : public EvacuateVisitorBase {
  public:
-  EvacuateOldSpaceVisitor(Heap* heap, LocalAllocator* local_allocator,
+  EvacuateOldSpaceVisitor(Heap* heap, EvacuationAllocator* local_allocator,
                           RecordMigratedSlotVisitor* record_visitor)
       : EvacuateVisitorBase(heap, local_allocator, record_visitor) {}
 
@@ -1601,7 +1604,7 @@ void MarkCompactCollector::MarkRoots(RootVisitor* root_visitor,
                                      ObjectVisitor* custom_root_body_visitor) {
   // Mark the heap roots including global variables, stack variables,
   // etc., and all objects reachable from them.
-  heap()->IterateStrongRoots(root_visitor, VISIT_ONLY_STRONG);
+  heap()->IterateRoots(root_visitor, base::EnumSet<SkipRoot>{SkipRoot::kWeak});
 
   // Custom marking for string table and top optimized frame.
   MarkStringTable(custom_root_body_visitor);
@@ -2217,7 +2220,7 @@ void MarkCompactCollector::FlushBytecodeFromSFI(
 
   // Initialize the uncompiled data.
   UncompiledData uncompiled_data = UncompiledData::cast(compiled_data);
-  uncompiled_data.Init(
+  uncompiled_data.InitAfterBytecodeFlush(
       inferred_name, start_position, end_position,
       [](HeapObject object, ObjectSlot slot, HeapObject target) {
         RecordSlot(object, slot, target);
@@ -2493,18 +2496,18 @@ void MarkCompactCollector::ClearJSWeakRefs() {
     if (!non_atomic_marking_state()->IsBlackOrGrey(target)) {
       DCHECK(!target.IsUndefined());
       // The value of the WeakCell is dead.
-      JSFinalizationGroup finalization_group =
-          JSFinalizationGroup::cast(weak_cell.finalization_group());
-      if (!finalization_group.scheduled_for_cleanup()) {
-        heap()->AddDirtyJSFinalizationGroup(finalization_group,
-                                            gc_notify_updated_slot);
+      JSFinalizationRegistry finalization_registry =
+          JSFinalizationRegistry::cast(weak_cell.finalization_registry());
+      if (!finalization_registry.scheduled_for_cleanup()) {
+        heap()->EnqueueDirtyJSFinalizationRegistry(finalization_registry,
+                                                   gc_notify_updated_slot);
       }
-      // We're modifying the pointers in WeakCell and JSFinalizationGroup during
-      // GC; thus we need to record the slots it writes. The normal write
+      // We're modifying the pointers in WeakCell and JSFinalizationRegistry
+      // during GC; thus we need to record the slots it writes. The normal write
       // barrier is not enough, since it's disabled before GC.
       weak_cell.Nullify(isolate(), gc_notify_updated_slot);
-      DCHECK(finalization_group.NeedsCleanup());
-      DCHECK(finalization_group.scheduled_for_cleanup());
+      DCHECK(finalization_registry.NeedsCleanup());
+      DCHECK(finalization_registry.scheduled_for_cleanup());
     } else {
       // The value of the WeakCell is alive.
       ObjectSlot slot = weak_cell.RawField(WeakCell::kTargetOffset);
@@ -2520,9 +2523,9 @@ void MarkCompactCollector::ClearJSWeakRefs() {
       // WeakCell. Like above, we're modifying pointers during GC, so record the
       // slots.
       HeapObject undefined = ReadOnlyRoots(isolate()).undefined_value();
-      JSFinalizationGroup finalization_group =
-          JSFinalizationGroup::cast(weak_cell.finalization_group());
-      finalization_group.RemoveUnregisterToken(
+      JSFinalizationRegistry finalization_registry =
+          JSFinalizationRegistry::cast(weak_cell.finalization_registry());
+      finalization_registry.RemoveUnregisterToken(
           JSReceiver::cast(unregister_token), isolate(),
           [undefined](WeakCell matched_cell) {
             matched_cell.set_unregister_token(undefined);
@@ -2534,6 +2537,7 @@ void MarkCompactCollector::ClearJSWeakRefs() {
       RecordSlot(weak_cell, slot, HeapObject::cast(*slot));
     }
   }
+  heap()->PostFinalizationRegistryCleanupTaskIfNeeded();
 }
 
 void MarkCompactCollector::AbortWeakObjects() {
@@ -2571,11 +2575,11 @@ MarkCompactCollector::PrepareRecordRelocSlot(Code host, RelocInfo* rinfo,
       addr = rinfo->constant_pool_entry_address();
       if (RelocInfo::IsCodeTargetMode(rmode)) {
         slot_type = CODE_ENTRY_SLOT;
+      } else if (RelocInfo::IsCompressedEmbeddedObject(rmode)) {
+        slot_type = COMPRESSED_OBJECT_SLOT;
       } else {
-        // Constant pools don't support compressed values at this time
-        // (this may change, therefore use a DCHECK).
         DCHECK(RelocInfo::IsFullEmbeddedObject(rmode));
-        slot_type = OBJECT_SLOT;
+        slot_type = FULL_OBJECT_SLOT;
       }
     }
     uintptr_t offset = addr - source_page->address();
@@ -2865,7 +2869,7 @@ class Evacuator : public Malloced {
   }
 
   Evacuator(Heap* heap, RecordMigratedSlotVisitor* record_visitor,
-            LocalAllocator* local_allocator, bool always_promote_young)
+            EvacuationAllocator* local_allocator, bool always_promote_young)
       : heap_(heap),
         local_pretenuring_feedback_(kInitialLocalPretenuringFeedbackCapacity),
         new_space_visitor_(heap_, local_allocator, record_visitor,
@@ -2923,7 +2927,7 @@ class Evacuator : public Malloced {
   EvacuateOldSpaceVisitor old_space_visitor_;
 
   // Locally cached collector data.
-  LocalAllocator* local_allocator_;
+  EvacuationAllocator* local_allocator_;
 
   // Book keeping info.
   double duration_;
@@ -2936,7 +2940,7 @@ void Evacuator::EvacuatePage(MemoryChunk* chunk) {
   intptr_t saved_live_bytes = 0;
   double evacuation_time = 0.0;
   {
-    AlwaysAllocateScope always_allocate(heap()->isolate());
+    AlwaysAllocateScope always_allocate(heap());
     TimedScope timed_scope(&evacuation_time);
     RawEvacuatePage(chunk, &saved_live_bytes);
   }
@@ -3011,7 +3015,7 @@ class FullEvacuator : public Evacuator {
   void RawEvacuatePage(MemoryChunk* chunk, intptr_t* live_bytes) override;
   EphemeronRememberedSet ephemeron_remembered_set_;
   RecordMigratedSlotVisitor record_visitor_;
-  LocalAllocator local_allocator_;
+  EvacuationAllocator local_allocator_;
 
   MarkCompactCollector* collector_;
 };
@@ -3873,7 +3877,9 @@ void MarkCompactCollector::UpdatePointersAfterEvacuation() {
   {
     TRACE_GC(heap()->tracer(),
              GCTracer::Scope::MC_EVACUATE_UPDATE_POINTERS_TO_NEW_ROOTS);
-    heap_->IterateRoots(&updating_visitor, VISIT_ALL_IN_SWEEP_NEWSPACE);
+    // The external string table is updated at the end.
+    heap_->IterateRoots(&updating_visitor, base::EnumSet<SkipRoot>{
+                                               SkipRoot::kExternalStringTable});
   }
 
   {
@@ -4127,7 +4133,7 @@ class YoungGenerationMarkingVerifier : public MarkingVerifier {
   }
 
   void Run() override {
-    VerifyRoots(VISIT_ALL_IN_SCAVENGE);
+    VerifyRoots();
     VerifyMarking(heap_->new_space());
   }
 
@@ -4177,7 +4183,7 @@ class YoungGenerationEvacuationVerifier : public EvacuationVerifier {
       : EvacuationVerifier(heap) {}
 
   void Run() override {
-    VerifyRoots(VISIT_ALL_IN_SCAVENGE);
+    VerifyRoots();
     VerifyEvacuation(heap_->new_space());
     VerifyEvacuation(heap_->old_space());
     VerifyEvacuation(heap_->code_space());
@@ -4457,7 +4463,9 @@ void MinorMarkCompactCollector::UpdatePointersAfterEvacuation() {
   {
     TRACE_GC(heap()->tracer(),
              GCTracer::Scope::MINOR_MC_EVACUATE_UPDATE_POINTERS_TO_NEW_ROOTS);
-    heap_->IterateRoots(&updating_visitor, VISIT_ALL_IN_MINOR_MC_UPDATE);
+    heap()->IterateRoots(&updating_visitor,
+                         base::EnumSet<SkipRoot>{SkipRoot::kExternalStringTable,
+                                                 SkipRoot::kOldGeneration});
   }
   {
     TRACE_GC(heap()->tracer(),
@@ -4911,7 +4919,15 @@ void MinorMarkCompactCollector::MarkRootSetInParallel(
       TRACE_GC(heap()->tracer(), GCTracer::Scope::MINOR_MC_MARK_SEED);
       isolate()->global_handles()->IdentifyWeakUnmodifiedObjects(
           &JSObject::IsUnmodifiedApiObject);
-      heap()->IterateRoots(root_visitor, VISIT_ALL_IN_MINOR_MC_MARK);
+      // MinorMC treats all weak roots except for global handles as strong.
+      // That is why we don't set skip_weak = true here and instead visit
+      // global handles separately.
+      heap()->IterateRoots(
+          root_visitor, base::EnumSet<SkipRoot>{SkipRoot::kExternalStringTable,
+                                                SkipRoot::kGlobalHandles,
+                                                SkipRoot::kOldGeneration});
+      isolate()->global_handles()->IterateYoungStrongAndDependentRoots(
+          root_visitor);
       // Create items for each page.
       RememberedSet<OLD_TO_NEW>::IterateMemoryChunks(
           heap(), [&job, &slots](MemoryChunk* chunk) {
@@ -5045,7 +5061,7 @@ class YoungGenerationEvacuator : public Evacuator {
   void RawEvacuatePage(MemoryChunk* chunk, intptr_t* live_bytes) override;
 
   YoungGenerationRecordMigratedSlotVisitor record_visitor_;
-  LocalAllocator local_allocator_;
+  EvacuationAllocator local_allocator_;
   MinorMarkCompactCollector* collector_;
 };
 

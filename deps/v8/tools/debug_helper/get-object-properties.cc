@@ -7,14 +7,17 @@
 #include "debug-helper-internal.h"
 #include "heap-constants.h"
 #include "include/v8-internal.h"
-#include "src/common/ptr-compr-inl.h"
+#include "src/common/external-pointer.h"
+#include "src/execution/isolate-utils.h"
 #include "src/objects/string-inl.h"
 #include "src/strings/unicode-inl.h"
 #include "torque-generated/class-debug-readers-tq.h"
 
 namespace i = v8::internal;
 
-namespace v8_debug_helper_internal {
+namespace v8 {
+namespace internal {
+namespace debug_helper_internal {
 
 constexpr char kObject[] = "v8::internal::Object";
 constexpr char kTaggedValue[] = "v8::internal::TaggedValue";
@@ -104,6 +107,7 @@ TypedObject GetTypedObjectByInstanceType(uintptr_t address,
   case i::INSTANCE_TYPE:                             \
     return {type_source, std::make_unique<Tq##ClassName>(address)};
     TORQUE_INSTANCE_CHECKERS_SINGLE_FULLY_DEFINED(INSTANCE_TYPE_CASE)
+    TORQUE_INSTANCE_CHECKERS_MULTIPLE_FULLY_DEFINED(INSTANCE_TYPE_CASE)
 #undef INSTANCE_TYPE_CASE
 
     default:
@@ -320,8 +324,15 @@ class ReadStringVisitor : public TqObjectVisitor {
     // require knowledge of the embedder. For now, we only read cached external
     // strings.
     if (IsExternalStringCached(object)) {
-      uintptr_t data_address = reinterpret_cast<uintptr_t>(
-          GetOrFinish(object->GetResourceDataValue(accessor_)));
+      ExternalPointer_t resource_data =
+          GetOrFinish(object->GetResourceDataValue(accessor_));
+#ifdef V8_COMPRESS_POINTERS
+      uintptr_t data_address = static_cast<uintptr_t>(DecodeExternalPointer(
+          Isolate::FromRoot(GetIsolateRoot(heap_addresses_.any_heap_pointer)),
+          resource_data));
+#else
+      uintptr_t data_address = reinterpret_cast<uintptr_t>(resource_data);
+#endif  // V8_COMPRESS_POINTERS
       if (done_) return;
       ReadStringCharacters<TChar>(object, data_address);
     } else {
@@ -590,9 +601,11 @@ std::unique_ptr<ObjectPropertiesResult> GetObjectProperties(
                                                   stream.str(), kSmi);
 }
 
-}  // namespace v8_debug_helper_internal
+}  // namespace debug_helper_internal
+}  // namespace internal
+}  // namespace v8
 
-namespace di = v8_debug_helper_internal;
+namespace di = v8::internal::debug_helper_internal;
 
 extern "C" {
 V8_DEBUG_HELPER_EXPORT d::ObjectPropertiesResult*

@@ -15,19 +15,11 @@ namespace proxy {
   ProxyRevocable(js-implicit context: NativeContext)(
       target: JSAny, handler: JSAny): JSProxyRevocableResult {
     try {
+      // 1. Let p be ? ProxyCreate(target, handler).
       const targetJSReceiver =
           Cast<JSReceiver>(target) otherwise ThrowProxyNonObject;
-      if (IsRevokedProxy(targetJSReceiver)) {
-        goto ThrowProxyHandlerOrTargetRevoked;
-      }
-
       const handlerJSReceiver =
           Cast<JSReceiver>(handler) otherwise ThrowProxyNonObject;
-      if (IsRevokedProxy(handlerJSReceiver)) {
-        goto ThrowProxyHandlerOrTargetRevoked;
-      }
-
-      // 1. Let p be ? ProxyCreate(target, handler).
       const proxy: JSProxy = AllocateProxy(targetJSReceiver, handlerJSReceiver);
 
       // 2. Let steps be the algorithm steps defined in Proxy Revocation
@@ -41,13 +33,8 @@ namespace proxy {
       // 7. Perform CreateDataProperty(result, "revoke", revoker).
       // 8. Return result.
       return NewJSProxyRevocableResult(proxy, revoke);
-    }
-    label ThrowProxyNonObject deferred {
+    } label ThrowProxyNonObject deferred {
       ThrowTypeError(MessageTemplate::kProxyNonObject, 'Proxy.revocable');
-    }
-    label ThrowProxyHandlerOrTargetRevoked deferred {
-      ThrowTypeError(
-          MessageTemplate::kProxyHandlerOrTargetRevoked, 'Proxy.revocable');
     }
   }
 }

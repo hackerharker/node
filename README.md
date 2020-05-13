@@ -11,6 +11,8 @@
 
 Node.js is an open-source, cross-platform, JavaScript runtime environment. It
 executes JavaScript code outside of a browser. For more information on using
+Here is a random line.
+
 Node.js, see the [Node.js Website][].
 
 The Node.js project uses an [open governance model](./GOVERNANCE.md). The
